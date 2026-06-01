@@ -1,0 +1,1182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Store Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Syne:wght@400;500;600;700&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<!-- HLS.js for Chrome/Firefox HLS playback (Safari has native support) -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.7/hls.min.js"></script>
+<style>
+:root{
+  --bg:#07080c;--bg2:#0d0f16;--bg3:#121620;--bg4:#181d28;--bg5:#1e2535;
+  --border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.11);--border3:rgba(255,255,255,0.18);
+  --text:#dde2f0;--text2:#8892a8;--text3:#454e63;
+  --blue:#3d8ef0;--blue-dim:rgba(61,142,240,0.1);
+  --green:#22d47a;--green-dim:rgba(34,212,122,0.1);
+  --amber:#f5a623;--amber-dim:rgba(245,166,35,0.1);
+  --red:#f04545;--red-dim:rgba(240,69,69,0.1);
+  --teal:#14b8b0;--purple:#9b6ef5;
+  --r:8px;--r2:12px;--sidebar:220px;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Syne',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;font-size:13px;overflow-x:hidden}
+.shell{display:grid;grid-template-columns:var(--sidebar) 1fr;grid-template-rows:48px 1fr;min-height:100vh}
+.topbar{grid-column:1/-1;background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 18px;gap:14px;position:sticky;top:0;z-index:100}
+.logo{font-size:13px;font-weight:700;letter-spacing:.06em;color:var(--text);display:flex;align-items:center;gap:7px}
+.logo-dot{width:8px;height:8px;border-radius:50%;background:var(--blue);box-shadow:0 0 8px var(--blue)}
+.topbar-sep{width:1px;height:18px;background:var(--border2)}
+.store-selector{display:flex;align-items:center;gap:8px}
+.store-selector label{font-size:10px;color:var(--text3);letter-spacing:.06em;text-transform:uppercase;white-space:nowrap}
+.store-selector input,.store-selector select{background:var(--bg4);border:1px solid var(--border2);color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:11px;padding:4px 8px;border-radius:var(--r);height:30px;outline:none;transition:border-color .15s}
+.store-selector input:focus,.store-selector select:focus{border-color:var(--blue)}
+.api-indicator{display:flex;align-items:center;gap:6px;font-size:11px}
+.api-dot{width:7px;height:7px;border-radius:50%;background:var(--text3);transition:background .3s;flex-shrink:0}
+.api-dot.ok{background:var(--green);box-shadow:0 0 6px var(--green)}
+.api-dot.err{background:var(--red)}
+.api-dot.loading{background:var(--amber);animation:pulse-dot 1s ease infinite}
+@keyframes pulse-dot{0%,100%{opacity:1}50%{opacity:.3}}
+.spacer{flex:1}
+.topbar-clock{font-family:'IBM Plex Mono',monospace;font-size:11px;color:var(--text3)}
+.btn{display:inline-flex;align-items:center;gap:5px;padding:0 12px;height:30px;font-family:'Syne',sans-serif;font-size:11px;font-weight:600;border-radius:var(--r);border:1px solid var(--border2);background:var(--bg4);color:var(--text);cursor:pointer;transition:all .15s;white-space:nowrap;letter-spacing:.02em}
+.btn:hover{background:var(--bg5);border-color:var(--border3)}
+.btn:active{transform:scale(.97)}
+.btn-primary{background:var(--blue);border-color:var(--blue);color:#fff}
+.btn-primary:hover{background:#4d9cf8}
+.btn-danger{border-color:rgba(240,69,69,.3);color:var(--red)}
+.btn-danger:hover{background:var(--red-dim)}
+.btn-sm{height:26px;padding:0 9px;font-size:10px}
+.btn-xs{height:22px;padding:0 7px;font-size:9px}
+.sidebar{background:var(--bg2);border-right:1px solid var(--border);padding:12px 0;display:flex;flex-direction:column;gap:1px;overflow-y:auto}
+.nav-section{padding:10px 14px 4px;font-size:9px;font-weight:700;letter-spacing:.12em;color:var(--text3);text-transform:uppercase}
+.nav-item{display:flex;align-items:center;gap:9px;padding:8px 14px;font-size:12px;color:var(--text2);cursor:pointer;border-left:2px solid transparent;transition:all .12s}
+.nav-item svg{width:14px;height:14px;flex-shrink:0;opacity:.7}
+.nav-item:hover{background:var(--bg3);color:var(--text)}
+.nav-item.active{background:var(--blue-dim);color:var(--blue);border-left-color:var(--blue)}
+.nav-item.active svg{opacity:1}
+.nav-badge{margin-left:auto;font-size:9px;padding:1px 5px;border-radius:8px;font-weight:700}
+.nav-badge.warn{background:var(--amber-dim);color:var(--amber)}
+.nav-badge.danger{background:var(--red-dim);color:var(--red)}
+.sidebar-spacer{flex:1}
+.main{overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:16px;background:var(--bg)}
+.panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--r2);padding:16px}
+.panel-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.panel-title{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text2);display:flex;align-items:center;gap:7px}
+.panel-actions{display:flex;gap:7px;align-items:center}
+.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+.kpi{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r2);padding:14px 16px;position:relative;overflow:hidden}
+.kpi-accent{position:absolute;top:0;left:0;right:0;height:2px;background:var(--acc,var(--blue));opacity:.7}
+.kpi-icon{width:28px;height:28px;border-radius:6px;background:var(--icon-bg,var(--blue-dim));display:flex;align-items:center;justify-content:center;margin-bottom:10px;color:var(--acc,var(--blue))}
+.kpi-icon svg{width:14px;height:14px}
+.kpi-label{font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:4px}
+.kpi-value{font-family:'IBM Plex Mono',monospace;font-size:24px;font-weight:500;color:var(--text);line-height:1}
+.kpi-sub{font-size:10px;color:var(--text3);margin-top:5px;font-family:'IBM Plex Mono',monospace}
+@keyframes num-flash{0%,100%{opacity:1}40%{opacity:.4}}
+.updating{animation:num-flash .5s ease}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.content-section{display:none}
+.content-section.active{display:flex;flex-direction:column;gap:16px}
+
+/* ── Camera manager ── */
+.cam-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:10px}
+.cam-thumb{background:var(--bg3);border:1px solid var(--border);border-radius:var(--r);overflow:hidden;cursor:pointer;transition:border-color .15s,transform .12s;position:relative}
+.cam-thumb:hover{border-color:var(--border2);transform:translateY(-1px)}
+.cam-thumb.active-cam{border-color:var(--blue);box-shadow:0 0 0 1px var(--blue)}
+.cam-thumb-preview{aspect-ratio:16/9;background:#000;position:relative;display:flex;align-items:center;justify-content:center}
+.cam-thumb-idle{display:flex;flex-direction:column;align-items:center;gap:5px;color:var(--text3)}
+.cam-thumb-idle svg{width:24px;height:24px;opacity:.4}
+.cam-thumb-idle span{font-size:9px}
+.cam-thumb-info{padding:8px 10px;display:flex;flex-direction:column;gap:3px}
+.cam-thumb-id{font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--blue)}
+.cam-thumb-label{font-size:11px;font-weight:600;color:var(--text)}
+.cam-thumb-url{font-family:'IBM Plex Mono',monospace;font-size:8px;color:var(--text3);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cam-thumb-meta{display:flex;align-items:center;justify-content:space-between;margin-top:2px}
+.cam-type-badge{font-size:8px;padding:1px 5px;border-radius:3px;font-weight:700;letter-spacing:.04em}
+.ct-entry{background:var(--green-dim);color:var(--green)}
+.ct-billing{background:var(--amber-dim);color:var(--amber)}
+.ct-floor{background:var(--blue-dim);color:var(--blue)}
+.cam-thumb-actions{display:flex;gap:4px;padding:0 8px 8px}
+.active-indicator{position:absolute;top:6px;left:6px;background:var(--blue);border-radius:3px;font-size:8px;font-weight:700;padding:2px 5px;color:#fff;display:none;align-items:center;gap:3px;letter-spacing:.05em}
+.active-indicator .blink{width:5px;height:5px;border-radius:50%;background:#fff;animation:blink 1.1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.15}}
+.cam-thumb.active-cam .active-indicator{display:flex}
+.cam-viewer{background:#000;border-radius:var(--r);overflow:hidden;position:relative;display:flex;align-items:center;justify-content:center;border:1px solid var(--border)}
+.cam-viewer video,.cam-viewer iframe,.cam-viewer img.mjpeg-img{width:100%;height:100%;object-fit:contain;border:none}
+.cam-viewer-idle{display:flex;flex-direction:column;align-items:center;gap:10px;color:var(--text3)}
+.cam-viewer-idle svg{width:48px;height:48px;opacity:.25}
+.cam-viewer-idle p{font-size:12px}
+.cam-viewer-overlay{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(transparent,rgba(0,0,0,.8));padding:10px 12px;display:flex;flex-wrap:wrap;gap:6px;align-items:flex-end}
+.cam-viewer-overlay.hidden{display:none}
+.ov-stat{background:rgba(0,0,0,.55);border:1px solid rgba(255,255,255,.1);border-radius:4px;padding:2px 8px;font-family:'IBM Plex Mono',monospace;font-size:10px}
+.ov-stat .val{color:var(--blue);font-weight:500}
+.cam-live-badge{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.7);border:1px solid rgba(240,69,69,.5);color:var(--red);font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;display:none;align-items:center;gap:4px;letter-spacing:.07em;z-index:5}
+.cam-live-badge .blink{width:5px;height:5px;border-radius:50%;background:var(--red);animation:blink 1.1s infinite}
+.viewer-status{position:absolute;top:8px;left:8px;font-family:'IBM Plex Mono',monospace;font-size:10px;padding:3px 8px;border-radius:4px;background:rgba(0,0,0,.8);z-index:5;display:none}
+
+/* ── Stream info box ── */
+.stream-info-box{background:var(--bg4);border:1px solid var(--border2);border-radius:var(--r);padding:10px 12px;margin-top:10px;font-family:'IBM Plex Mono',monospace;font-size:10px;display:none}
+.stream-info-row{display:flex;gap:8px;align-items:center;padding:3px 0}
+.stream-proto{min-width:64px;font-weight:500}
+.stream-url{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text2)}
+.proto-rtsp{color:var(--red)}
+.proto-webrtc{color:var(--purple)}
+.proto-hls{color:var(--green)}
+.proto-player{color:var(--blue)}
+
+/* ── Form ── */
+.form-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.form-group{display:flex;flex-direction:column;gap:3px}
+.form-label{font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--text3)}
+.form-input,.form-select{background:var(--bg4);border:1px solid var(--border2);color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:11px;padding:5px 8px;border-radius:var(--r);height:30px;outline:none;transition:border-color .15s;width:100%}
+.form-input:focus,.form-select:focus{border-color:var(--blue)}
+.form-check{display:flex;align-items:center;gap:6px;font-size:11px;cursor:pointer}
+.form-check input{accent-color:var(--blue);width:13px;height:13px}
+.rtsp-input{width:100%;background:var(--bg4);border:1px solid var(--border2);color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:11px;padding:6px 10px;border-radius:var(--r);height:32px;outline:none;transition:border-color .15s}
+.rtsp-input:focus{border-color:var(--blue)}
+
+/* ── Funnel ── */
+.funnel-stage{margin-bottom:10px}
+.funnel-meta{display:flex;justify-content:space-between;font-size:10px;color:var(--text3);margin-bottom:4px}
+.funnel-name{color:var(--text2);font-weight:600}
+.funnel-bar-bg{background:var(--bg4);border-radius:4px;overflow:hidden;height:26px}
+.funnel-bar-fill{height:100%;background:var(--blue);border-radius:4px;display:flex;align-items:center;padding-left:8px;transition:width .6s cubic-bezier(.4,0,.2,1);min-width:40px}
+.funnel-bar-fill span{font-size:10px;color:#fff;font-family:'IBM Plex Mono',monospace}
+.funnel-drop{color:var(--red);font-size:9px}
+
+/* ── Heatmap ── */
+.heatmap-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(90px,1fr));gap:8px}
+.hz{border-radius:var(--r);padding:10px 8px;text-align:center;cursor:default;transition:transform .12s;border:1px solid transparent}
+.hz:hover{transform:scale(1.05);border-color:var(--border2)}
+.hz-name{font-size:9px;font-weight:700;letter-spacing:.05em;opacity:.9;margin-bottom:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hz-score{font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:500;line-height:1}
+.hz-visits{font-size:8px;opacity:.6;margin-top:2px}
+.conf-badge{font-size:9px;font-weight:700;padding:2px 7px;border-radius:4px;letter-spacing:.05em;display:inline-block}
+.conf-HIGH{background:var(--green-dim);color:var(--green)}
+.conf-LOW{background:var(--amber-dim);color:var(--amber)}
+
+/* ── Anomalies ── */
+.anomaly-item{display:flex;gap:10px;padding:10px 0;border-bottom:1px solid var(--border);align-items:flex-start}
+.anomaly-item:last-child{border-bottom:none}
+.sev-badge{font-size:9px;font-weight:700;letter-spacing:.06em;padding:2px 6px;border-radius:4px;flex-shrink:0;margin-top:1px}
+.sev-CRITICAL{background:var(--red-dim);color:var(--red)}
+.sev-WARN{background:var(--amber-dim);color:var(--amber)}
+.sev-INFO{background:var(--blue-dim);color:var(--blue)}
+.anomaly-type{font-size:11px;font-weight:600;color:var(--text);margin-bottom:2px}
+.anomaly-action{font-size:10px;color:var(--text3)}
+
+/* ── Log ── */
+.log-area{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:8px 10px;max-height:160px;overflow-y:auto;font-family:'IBM Plex Mono',monospace;font-size:10px;line-height:1.9}
+.log-row{display:flex;gap:10px}
+.log-ts{color:var(--text3);flex-shrink:0;min-width:64px}
+.log-ok{color:var(--green)}.log-err{color:var(--red)}.log-warn{color:var(--amber)}.log-info{color:var(--text2)}
+
+/* ── Event stream ── */
+.event-stream{display:flex;flex-direction:column;gap:0;max-height:260px;overflow-y:auto}
+.event-row{display:flex;align-items:center;gap:8px;padding:5px 0;border-bottom:1px solid var(--border);font-family:'IBM Plex Mono',monospace;font-size:10px}
+.event-row:last-child{border-bottom:none}
+.event-ts{color:var(--text3);min-width:60px;flex-shrink:0}
+.event-type{min-width:130px;flex-shrink:0;font-weight:500}
+.event-visitor{color:var(--text2);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.event-zone{color:var(--text3)}
+.et-ENTRY{color:var(--green)}.et-EXIT{color:var(--red)}.et-ZONE_ENTER{color:var(--blue)}.et-ZONE_EXIT{color:#4a9cf0}.et-ZONE_DWELL{color:var(--teal)}.et-BILLING_QUEUE_JOIN{color:var(--amber)}.et-BILLING_QUEUE_ABANDON{color:#f07a45}.et-REENTRY{color:var(--purple)}
+
+/* ── Misc ── */
+.ingest-result{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:8px 10px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text2);display:none;margin-top:8px;white-space:pre-wrap;line-height:1.7}
+.health-row{display:flex;align-items:center;gap:8px;font-family:'IBM Plex Mono',monospace;font-size:10px;padding:5px 0;border-bottom:1px solid var(--border)}
+.health-row:last-child{border-bottom:none}
+.json-pre{background:var(--bg);border:1px solid var(--border);border-radius:var(--r);padding:10px 12px;font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text2);max-height:380px;overflow:auto;white-space:pre-wrap;line-height:1.7}
+.empty{text-align:center;padding:28px 16px;color:var(--text3);font-size:11px}
+.empty svg{width:24px;height:24px;margin:0 auto 8px;display:block;opacity:.4}
+.chart-wrap{position:relative;width:100%}
+.ws-dot{width:6px;height:6px;border-radius:50%;background:var(--text3);display:inline-block;flex-shrink:0}
+.ws-dot.connected{background:var(--green);box-shadow:0 0 5px var(--green)}
+.ws-dot.connecting{background:var(--amber);animation:pulse-dot 1s ease infinite}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-track{background:var(--bg2)}
+::-webkit-scrollbar-thumb{background:var(--bg5);border-radius:3px}
+</style>
+</head>
+<body>
+<div class="shell">
+
+<!-- Topbar -->
+<header class="topbar">
+  <div class="logo"><span class="logo-dot"></span>Store Intelligence</div>
+  <div class="topbar-sep"></div>
+  <div class="store-selector">
+    <label>API</label>
+    <input id="api-url" value="http://localhost:8000" style="width:180px"/>
+    <div class="topbar-sep"></div>
+    <label>Store</label>
+    <input id="store-id" value="STORE_BLR_002" style="width:150px"/>
+    <button class="btn btn-primary" onclick="fetchAll()">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+      Fetch
+    </button>
+    <button class="btn" id="auto-btn" onclick="toggleAuto()">
+      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polygon points="10 8 16 12 10 16 10 8"/></svg>
+      Auto 30s
+    </button>
+  </div>
+  <div class="spacer"></div>
+  <div class="api-indicator">
+    <span class="api-dot" id="api-dot"></span>
+    <span id="api-label" style="font-size:10px;color:var(--text3)">Not connected</span>
+  </div>
+  <div class="topbar-sep"></div>
+  <div class="topbar-clock" id="clock"></div>
+</header>
+
+<!-- Sidebar -->
+<nav class="sidebar">
+  <div class="nav-section">Analytics</div>
+  <div class="nav-item active" onclick="nav('overview',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>Overview
+  </div>
+  <div class="nav-item" onclick="nav('heatmap',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/></svg>Zone Heatmap
+  </div>
+  <div class="nav-item" onclick="nav('funnel',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>Funnel
+  </div>
+  <div class="nav-item" onclick="nav('anomalies',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>Anomalies
+    <span class="nav-badge warn" id="anom-badge" style="display:none">0</span>
+  </div>
+  <div class="nav-section">Cameras</div>
+  <div class="nav-item" onclick="nav('cameras',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>Camera Manager
+    <span class="nav-badge" id="cam-count-badge" style="display:none;background:var(--blue-dim);color:var(--blue)">0</span>
+  </div>
+  <div class="nav-section">Operations</div>
+  <div class="nav-item" onclick="nav('ingest',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="16 16 12 12 8 16"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.39 18.39A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.3"/></svg>Ingest Event
+  </div>
+  <div class="sidebar-spacer"></div>
+  <div class="nav-section">System</div>
+  <div class="nav-item" onclick="nav('health',this)">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>Health
+  </div>
+</nav>
+
+<main class="main">
+
+<!-- OVERVIEW -->
+<section id="s-overview" class="content-section active">
+  <div class="kpi-grid">
+    <div class="kpi" style="--acc:var(--blue);--icon-bg:var(--blue-dim)">
+      <div class="kpi-accent"></div>
+      <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div>
+      <div class="kpi-label">Unique Visitors</div><div class="kpi-value" id="kv-visitors">–</div><div class="kpi-sub">Last 24 hours</div>
+    </div>
+    <div class="kpi" style="--acc:var(--green);--icon-bg:var(--green-dim)">
+      <div class="kpi-accent"></div>
+      <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/></svg></div>
+      <div class="kpi-label">Conversion Rate</div><div class="kpi-value" id="kv-conv">–</div><div class="kpi-sub" id="ks-conv">Confidence –</div>
+    </div>
+    <div class="kpi" style="--acc:var(--purple);--icon-bg:rgba(155,110,245,.1)">
+      <div class="kpi-accent"></div>
+      <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg></div>
+      <div class="kpi-label">Avg Dwell</div><div class="kpi-value" id="kv-dwell">–</div><div class="kpi-sub">seconds per visitor</div>
+    </div>
+    <div class="kpi" style="--acc:var(--amber);--icon-bg:var(--amber-dim)">
+      <div class="kpi-accent"></div>
+      <div class="kpi-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/></svg></div>
+      <div class="kpi-label">Queue Depth</div><div class="kpi-value" id="kv-queue">–</div><div class="kpi-sub" id="ks-queue">Abandonment –</div>
+    </div>
+  </div>
+  <div class="two-col">
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">Conversion Funnel</div></div>
+      <div id="funnel-overview"><div class="empty">Fetch data</div></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">Active Anomalies</div><span class="conf-badge" id="anom-count-badge" style="display:none"></span></div>
+      <div id="anom-overview"><div class="empty">Fetch data</div></div>
+    </div>
+  </div>
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">Zone Heatmap</div><span class="conf-badge" id="hm-conf-ov" style="display:none"></span></div>
+    <div id="heatmap-ov"><div class="empty">Fetch data</div></div>
+  </div>
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">API Log</div><button class="btn btn-sm" onclick="clearLog()">Clear</button></div>
+    <div class="log-area" id="log-area"></div>
+  </div>
+</section>
+
+<!-- HEATMAP -->
+<section id="s-heatmap" class="content-section">
+  <div class="panel">
+    <div class="panel-head"><div class="panel-title">Zone Heatmap — Full</div><div class="panel-actions"><span class="conf-badge" id="hm-conf-full" style="display:none"></span><button class="btn btn-sm" onclick="fetchHeatmap()">Refresh</button></div></div>
+    <div id="heatmap-full"><div class="empty">Fetch data</div></div>
+  </div>
+  <div class="panel"><div class="panel-head"><div class="panel-title">Dwell Distribution</div></div><div class="chart-wrap" style="height:240px"><canvas id="dwell-chart"></canvas></div></div>
+</section>
+
+<!-- FUNNEL -->
+<section id="s-funnel" class="content-section">
+  <div class="two-col">
+    <div class="panel"><div class="panel-head"><div class="panel-title">Conversion Funnel</div></div><div id="funnel-full"><div class="empty">Fetch data</div></div></div>
+    <div class="panel"><div class="panel-head"><div class="panel-title">Funnel Chart</div></div><div class="chart-wrap" style="height:240px"><canvas id="funnel-chart"></canvas></div></div>
+  </div>
+</section>
+
+<!-- ANOMALIES -->
+<section id="s-anomalies" class="content-section">
+  <div class="panel"><div class="panel-head"><div class="panel-title">All Anomalies</div><button class="btn btn-sm" onclick="fetchAnomalies()">Refresh</button></div><div id="anom-full"><div class="empty">Fetch data</div></div></div>
+</section>
+
+<!-- CAMERA MANAGER -->
+<section id="s-cameras" class="content-section">
+  <div style="display:grid;grid-template-columns:1fr 320px;gap:16px;align-items:start">
+
+    <!-- Main viewer panel -->
+    <div class="panel" style="padding:12px">
+      <div class="panel-head">
+        <div class="panel-title">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+          <span id="active-cam-label">No Camera Selected</span>
+          <span id="active-cam-type" class="cam-type-badge" style="margin-left:4px"></span>
+        </div>
+        <div class="panel-actions">
+          <span id="active-cam-id" style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3)"></span>
+          <button class="btn btn-sm btn-danger" onclick="deactivateCam()" id="deactivate-btn" style="display:none">Stop</button>
+          <button class="btn btn-sm" onclick="pollActiveCamera(true)">Sync</button>
+        </div>
+      </div>
+
+      <div class="cam-viewer" id="cam-viewer" style="height:340px">
+        <div class="cam-viewer-idle" id="viewer-idle">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+          <p>Select a camera or register an RTSP stream below</p>
+        </div>
+        <video id="viewer-video" style="display:none;width:100%;height:100%;object-fit:contain" autoplay muted playsinline></video>
+        <iframe id="viewer-iframe" style="display:none;width:100%;height:100%;border:none"></iframe>
+        <img id="viewer-mjpeg" class="mjpeg-img" style="display:none;width:100%;height:100%;object-fit:contain" alt="MJPEG"/>
+        <div class="cam-live-badge" id="viewer-live-badge"><span class="blink"></span>LIVE</div>
+        <div class="viewer-status" id="viewer-status"></div>
+        <div class="cam-viewer-overlay hidden" id="viewer-overlay">
+          <div class="ov-stat">Visitors <span class="val" id="ov-visitors">–</span></div>
+          <div class="ov-stat">Conv <span class="val" id="ov-conv">–</span></div>
+          <div class="ov-stat">Queue <span class="val" id="ov-queue">–</span></div>
+          <div class="ov-stat">Dwell <span class="val" id="ov-dwell">–</span></div>
+        </div>
+      </div>
+
+      <!-- Stream info: auto-derived endpoints from RTSP -->
+      <div class="stream-info-box" id="stream-info-box">
+        <div style="font-size:9px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--text3);margin-bottom:7px;display:flex;align-items:center;justify-content:space-between">
+          MediaMTX Endpoints (auto-detected)
+          <span style="color:var(--text3);font-weight:400;text-transform:none;letter-spacing:0">trying in order: WebRTC → HLS → Player</span>
+        </div>
+        <div id="stream-info-rows"></div>
+        <div style="margin-top:8px;border-top:1px solid var(--border);padding-top:7px;color:var(--text3);font-size:9px;line-height:1.8">
+          RTSP can't play in browsers directly — MediaMTX re-exposes it as WebRTC + HLS automatically.<br/>
+          If nothing works: <span style="color:var(--green)">mediamtx</span> must be running and your stream must be publishing.
+        </div>
+      </div>
+
+      <!-- Camera thumbnails -->
+      <div style="margin-top:12px">
+        <div style="font-size:9px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text3);margin-bottom:8px;display:flex;align-items:center;justify-content:space-between">
+          <span>All Cameras — <span id="cam-store-label" style="color:var(--blue)">–</span></span>
+          <button class="btn btn-xs" onclick="fetchCameras()">Refresh</button>
+        </div>
+        <div class="cam-grid" id="cam-grid"><div class="empty" style="grid-column:1/-1;padding:16px">No cameras registered</div></div>
+      </div>
+    </div>
+
+    <!-- Right: events + WS + poll -->
+    <div style="display:flex;flex-direction:column;gap:12px">
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">Live Events</div>
+          <div class="panel-actions">
+            <button class="btn btn-sm" id="sim-btn" onclick="toggleSimulation()">Simulate</button>
+            <button class="btn btn-sm" onclick="clearStream()">Clear</button>
+          </div>
+        </div>
+        <div class="event-stream" id="event-stream"><div class="empty" style="padding:12px">No events — simulate or connect WS</div></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <div class="panel-title">WebSocket Feed</div>
+          <div style="display:flex;align-items:center;gap:5px"><span class="ws-dot" id="ws-dot"></span><span id="ws-status" style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)">disconnected</span></div>
+        </div>
+        <input class="rtsp-input" id="ws-url" placeholder="ws://localhost:8000/ws/events" style="margin-bottom:6px"/>
+        <div style="display:flex;gap:6px">
+          <button class="btn btn-sm btn-primary" id="ws-connect-btn" onclick="connectWS()">Connect</button>
+          <button class="btn btn-sm btn-danger" id="ws-disconnect-btn" onclick="disconnectWS()" style="display:none">Disconnect</button>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><div class="panel-title">Camera Auto-poll</div></div>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <label style="font-size:10px;color:var(--text3)">Every</label>
+          <select id="poll-interval" class="form-select" style="width:80px;height:26px;font-size:10px">
+            <option value="3000">3s</option><option value="5000" selected>5s</option>
+            <option value="10000">10s</option><option value="30000">30s</option><option value="0">Off</option>
+          </select>
+          <button class="btn btn-sm" onclick="applyPollInterval()">Apply</button>
+          <span id="poll-status" style="font-family:'IBM Plex Mono',monospace;font-size:9px;color:var(--text3)">off</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Register form -->
+  <div class="two-col">
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">Register Camera</div></div>
+      <div class="form-grid" style="margin-bottom:10px">
+        <div class="form-group"><label class="form-label">Camera ID</label><input class="form-input" id="reg-cam-id" placeholder="CAM_ENTRY_01"/></div>
+        <div class="form-group"><label class="form-label">Store ID</label><input class="form-input" id="reg-store-id" placeholder="STORE_BLR_002"/></div>
+        <div class="form-group"><label class="form-label">Label</label><input class="form-input" id="reg-label" placeholder="Entry camera"/></div>
+        <div class="form-group"><label class="form-label">Type</label>
+          <select class="form-select" id="reg-type"><option value="entry">entry</option><option value="floor" selected>floor</option><option value="billing">billing</option></select>
+        </div>
+      </div>
+      <div class="form-group" style="margin-bottom:10px">
+        <label class="form-label">RTSP / HLS / WebRTC / HTTP URL</label>
+        <input class="rtsp-input" id="reg-url" placeholder="rtsp://192.168.1.100:8554/testcam"/>
+      </div>
+      <div class="form-group" style="margin-bottom:10px">
+        <label class="form-label">Zones (comma-separated)</label>
+        <input class="form-input" id="reg-zones" placeholder="SKINCARE,HAIRCARE"/>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+        <button class="btn btn-primary" onclick="registerCamera()">Register</button>
+        <button class="btn" onclick="quickPreview()">Quick Preview</button>
+        <label class="form-check"><input type="checkbox" id="reg-auto-activate"/> Auto-activate</label>
+        <span id="reg-result" style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)"></span>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">Batch Register</div></div>
+      <p style="font-size:10px;color:var(--text3);margin-bottom:8px;line-height:1.7">Format: <code style="color:var(--blue)">STORE_ID,CAM_ID,TYPE,URL,label</code></p>
+      <textarea id="batch-input" rows="6" style="width:100%;background:var(--bg4);border:1px solid var(--border2);color:var(--text);font-family:'IBM Plex Mono',monospace;font-size:10px;padding:8px;border-radius:var(--r);outline:none;resize:vertical;line-height:1.8;transition:border-color .15s" onfocus="this.style.borderColor='var(--blue)'" onblur="this.style.borderColor='var(--border2)'" placeholder="STORE_BLR_002,CAM_ENTRY_01,entry,rtsp://localhost:8554/testcam,Entry Door
+STORE_BLR_002,CAM_FLOOR_01,floor,rtsp://localhost:8554/floor,Main Floor"></textarea>
+      <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+        <button class="btn btn-primary" onclick="batchRegister()">Register All</button>
+        <button class="btn" onclick="prefillBatch()">Fill Example</button>
+        <span id="batch-result" style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3)"></span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- INGEST -->
+<section id="s-ingest" class="content-section">
+  <div class="two-col">
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">Post Test Event</div></div>
+      <div class="form-grid">
+        <div class="form-group"><label class="form-label">Event Type</label><select class="form-select" id="ing-type" onchange="updateIngPreview()"><option>ENTRY</option><option>EXIT</option><option>ZONE_ENTER</option><option>ZONE_EXIT</option><option>ZONE_DWELL</option><option>BILLING_QUEUE_JOIN</option><option>BILLING_QUEUE_ABANDON</option><option>REENTRY</option></select></div>
+        <div class="form-group"><label class="form-label">Camera ID</label><input class="form-input" id="ing-cam" value="CAM_ENTRY_01" oninput="updateIngPreview()"/></div>
+        <div class="form-group"><label class="form-label">Visitor ID</label><input class="form-input" id="ing-visitor" value="VIS_demo01" oninput="updateIngPreview()"/></div>
+        <div class="form-group"><label class="form-label">Zone ID</label><input class="form-input" id="ing-zone" placeholder="SKINCARE (optional)" oninput="updateIngPreview()"/></div>
+        <div class="form-group"><label class="form-label">Dwell (ms)</label><input class="form-input" id="ing-dwell" value="0" oninput="updateIngPreview()"/></div>
+        <div class="form-group"><label class="form-label">Confidence</label><input class="form-input" id="ing-conf" value="0.92" oninput="updateIngPreview()"/></div>
+        <div class="form-group"><label class="form-label">Queue Depth</label><input class="form-input" id="ing-queue" value="0" oninput="updateIngPreview()"/></div>
+        <div class="form-group" style="justify-content:flex-end"><label class="form-check" style="margin-top:auto;padding-bottom:6px"><input type="checkbox" id="ing-staff" onchange="updateIngPreview()"/> Is Staff</label></div>
+      </div>
+      <div style="margin-top:12px;display:flex;gap:8px">
+        <button class="btn btn-primary" onclick="sendEvent()">Send Event</button>
+        <button class="btn" onclick="randomiseForm()">Randomise</button>
+      </div>
+      <div class="ingest-result" id="ing-result"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-head"><div class="panel-title">Payload Preview</div><button class="btn btn-sm" onclick="copyPayload()">Copy JSON</button></div>
+      <pre class="json-pre" id="ing-preview">Fill form to preview.</pre>
+    </div>
+  </div>
+</section>
+
+<!-- HEALTH -->
+<section id="s-health" class="content-section">
+  <div class="panel"><div class="panel-head"><div class="panel-title">Service Health</div><button class="btn btn-sm" onclick="fetchHealth()">Check</button></div><div id="health-body"><div class="empty">Click Check</div></div></div>
+  <div class="panel"><div class="panel-head"><div class="panel-title">API Endpoints</div></div><div id="endpoint-list"></div></div>
+</section>
+
+</main>
+</div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// STATE
+// ═══════════════════════════════════════════════════════════════
+let autoTimer=null, autoActive=false;
+let ws=null, simTimer=null, simActive=false;
+let dwellChart=null, funnelChart=null;
+let cachedMetrics={};
+let pollTimer=null;
+let activeRtspUrl=null;
+let registeredCameras=[];
+let hlsInstance=null;
+let whepPc=null;
+
+const EVENT_TYPES=['ENTRY','EXIT','ZONE_ENTER','ZONE_EXIT','ZONE_DWELL','BILLING_QUEUE_JOIN','BILLING_QUEUE_ABANDON','REENTRY'];
+const ET_ZONES=['ZONE_ENTER','ZONE_EXIT','ZONE_DWELL','BILLING_QUEUE_JOIN','BILLING_QUEUE_ABANDON'];
+const ZONES=['SKINCARE','HAIRCARE','FRAGRANCE','MAKEUP','BILLING'];
+const VISITORS=['VIS_a1b2c3','VIS_d4e5f6','VIS_g7h8i9','VIS_j0k1l2'];
+
+// ═══════════════════════════════════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════════════════════════════════
+const $=id=>document.getElementById(id);
+const api=()=>($('api-url').value||'http://localhost:8000').replace(/\/$/,'');
+const sid=()=>$('store-id').value.trim()||'STORE_BLR_002';
+const nowts=()=>new Date().toLocaleTimeString('en-IN',{hour12:false});
+const randHex=n=>Math.random().toString(36).slice(2,2+n);
+
+setInterval(()=>{ $('clock').textContent=new Date().toLocaleTimeString('en-IN',{hour12:false}); },1000);
+
+function setApiStatus(state,label){
+  const d=$('api-dot'),l=$('api-label');
+  d.className='api-dot '+(state==='ok'?'ok':state==='err'?'err':'loading');
+  l.textContent=label||state;
+  l.style.color=state==='ok'?'var(--green)':state==='err'?'var(--red)':'var(--text3)';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════════════════
+function nav(name,el){
+  document.querySelectorAll('.content-section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(i=>i.classList.remove('active'));
+  $('s-'+name).classList.add('active');
+  el.classList.add('active');
+  if(name==='cameras'){fetchCameras();pollActiveCamera(true);}
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LOG
+// ═══════════════════════════════════════════════════════════════
+function log(msg,type='info'){
+  const la=$('log-area'),r=document.createElement('div');
+  r.className='log-row';
+  r.innerHTML=`<span class="log-ts">${nowts()}</span><span class="log-${type}">${msg}</span>`;
+  la.appendChild(r);la.scrollTop=la.scrollHeight;
+  if(la.children.length>300)la.removeChild(la.firstChild);
+}
+function clearLog(){$('log-area').innerHTML='';}
+
+// ═══════════════════════════════════════════════════════════════
+// API FETCH
+// ═══════════════════════════════════════════════════════════════
+async function apiFetch(path,opts={}){
+  try{
+    const r=await fetch(api()+path,{
+      headers:{'Accept':'application/json','Content-Type':'application/json',...(opts.headers||{})},
+      ...opts
+    });
+    const data=await r.json();
+    if(!r.ok){log(`← ${r.status} ${path}`,'err');return null;}
+    log(`← 200 ${path}`,'ok');
+    return data;
+  }catch(e){log(`✗ ${path}: ${e.message}`,'err');return null;}
+}
+
+async function fetchAll(){
+  log(`Fetching ${sid()}`,'warn'); setApiStatus('loading','Fetching…');
+  const [m,f,h,a,health]=await Promise.all([
+    apiFetch(`/stores/${sid()}/metrics`),apiFetch(`/stores/${sid()}/funnel`),
+    apiFetch(`/stores/${sid()}/heatmap`),apiFetch(`/stores/${sid()}/anomalies`),apiFetch('/health'),
+  ]);
+  let ok=false;
+  if(m){renderMetrics(m);cachedMetrics=m;ok=true;updateViewerOverlay(m);}
+  if(f)renderFunnel(f);if(h)renderHeatmap(h);if(a)renderAnomalies(a);if(health)renderHealth(health);
+  setApiStatus(ok?'ok':'err',ok?sid():'Error');
+}
+async function fetchHeatmap(){const h=await apiFetch(`/stores/${sid()}/heatmap`);if(h)renderHeatmap(h);}
+async function fetchAnomalies(){const a=await apiFetch(`/stores/${sid()}/anomalies`);if(a)renderAnomalies(a);}
+async function fetchHealth(){const h=await apiFetch('/health');if(h)renderHealth(h);}
+function toggleAuto(){
+  const btn=$('auto-btn');
+  if(autoActive){clearInterval(autoTimer);autoActive=false;btn.textContent='Auto 30s';}
+  else{autoActive=true;btn.textContent='⏸ Pause';fetchAll();autoTimer=setInterval(fetchAll,30000);}
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RENDER
+// ═══════════════════════════════════════════════════════════════
+function flash(id,val){const el=$(id);if(!el)return;el.textContent=val;el.classList.remove('updating');void el.offsetWidth;el.classList.add('updating');}
+function renderMetrics(d){
+  flash('kv-visitors',d.unique_visitors??'–');
+  flash('kv-conv',d.conversion_rate!=null?(Math.round(d.conversion_rate*1000)/10)+'%':'–');
+  flash('kv-dwell',d.avg_dwell_ms!=null?(Math.round(d.avg_dwell_ms/100)/10)+'s':'–');
+  flash('kv-queue',d.queue_depth??'–');
+  $('ks-conv').textContent='Confidence: '+(d.data_confidence||'–');
+  $('ks-queue').textContent='Abandonment: '+(d.abandonment_rate!=null?(Math.round(d.abandonment_rate*1000)/10)+'%':'–');
+}
+function updateViewerOverlay(d){
+  if(!d)return;
+  $('ov-visitors').textContent=d.unique_visitors??'–';
+  $('ov-conv').textContent=d.conversion_rate!=null?(Math.round(d.conversion_rate*1000)/10)+'%':'–';
+  $('ov-queue').textContent=d.queue_depth??'–';
+  $('ov-dwell').textContent=d.avg_dwell_ms!=null?(Math.round(d.avg_dwell_ms/100)/10)+'s':'–';
+}
+
+const HEAT=[
+  {bg:['#0c1a2e','#0f3460','#1a6b9a','#2196f3'],tx:'#90caf9'},
+  {bg:['#0d1a0d','#1b4d1b','#2d7a2d','#4caf50'],tx:'#a5d6a7'},
+  {bg:['#1a0d00','#4d2600','#8f4700','#ff9800'],tx:'#ffcc80'},
+  {bg:['#12001a','#3d0060','#7b00a8','#ce93d8'],tx:'#e1bee7'},
+  {bg:['#1a0000','#5a0000','#9e0000','#f44336'],tx:'#ffcdd2'},
+];
+function heatCol(score,i){const p=HEAT[i%HEAT.length];const b=score>75?3:score>50?2:score>25?1:0;return{bg:p.bg[b],tx:p.tx};}
+function heatmapHTML(zones){
+  if(!zones||!zones.length)return'<div class="empty">No zone data</div>';
+  return'<div class="heatmap-grid">'+zones.map((z,i)=>{
+    const{bg,tx}=heatCol(z.score,i);
+    return`<div class="hz" style="background:${bg};color:${tx}"><div class="hz-name">${z.zone_id}</div><div class="hz-score">${Math.round(z.score)}</div><div class="hz-visits">${z.visit_count} visits</div></div>`;
+  }).join('')+'</div>';
+}
+function renderHeatmap(d){
+  const conf=d.data_confidence||'LOW';
+  ['hm-conf-ov','hm-conf-full'].forEach(id=>{const el=$(id);if(!el)return;el.style.display='';el.textContent=conf;el.className='conf-badge conf-'+conf;});
+  const html=heatmapHTML(d.zones);
+  $('heatmap-ov').innerHTML=html;$('heatmap-full').innerHTML=html;
+  if(!d.zones||!d.zones.length)return;
+  if(dwellChart)dwellChart.destroy();
+  dwellChart=new Chart($('dwell-chart'),{type:'bar',data:{labels:d.zones.map(z=>z.zone_id),datasets:[{label:'Avg Dwell (s)',data:d.zones.map(z=>Math.round(z.avg_dwell_ms/1000)),backgroundColor:d.zones.map((_,i)=>HEAT[i%HEAT.length].tx+'cc'),borderRadius:4,borderSkipped:false}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#454e63',font:{family:'IBM Plex Mono',size:10}}},y:{grid:{display:false},ticks:{color:'#454e63',font:{family:'IBM Plex Mono',size:10},maxRotation:0}}}}});
+}
+function funnelHTML(stages){
+  if(!stages||!stages.length)return'<div class="empty">No funnel data</div>';
+  const max=stages[0].count||1;
+  return stages.map(s=>`<div class="funnel-stage"><div class="funnel-meta"><span class="funnel-name">${s.stage}</span><span>${s.count} visitors${s.drop_off_pct>0?` <span class="funnel-drop">↓${s.drop_off_pct}%</span>`:''}</span></div><div class="funnel-bar-bg"><div class="funnel-bar-fill" style="width:${Math.max(6,s.count/max*100)}%"><span>${s.count}</span></div></div></div>`).join('');
+}
+function renderFunnel(d){
+  const html=funnelHTML(d.stages);
+  $('funnel-overview').innerHTML=html;$('funnel-full').innerHTML=html;
+  if(!d.stages||!d.stages.length)return;
+  if(funnelChart)funnelChart.destroy();
+  funnelChart=new Chart($('funnel-chart'),{type:'bar',data:{labels:d.stages.map(s=>s.stage),datasets:[{label:'Visitors',data:d.stages.map(s=>s.count),backgroundColor:['#3d8ef0','#2e7de0','#1f6bcf','#1059b8'],borderRadius:4,borderSkipped:false}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{grid:{color:'rgba(255,255,255,0.05)'},ticks:{color:'#454e63',font:{family:'IBM Plex Mono',size:10}}},x:{grid:{display:false},ticks:{color:'#454e63',font:{family:'IBM Plex Mono',size:10}}}}}});
+}
+function anomHTML(anomalies){
+  if(!anomalies||!anomalies.length)return'<div class="empty">All clear</div>';
+  return anomalies.map(a=>`<div class="anomaly-item"><span class="sev-badge sev-${a.severity}">${a.severity}</span><div><div class="anomaly-type">${(a.anomaly_type||'').replace(/_/g,' ')}</div><div class="anomaly-action">${a.suggested_action||a.description||''}</div></div></div>`).join('');
+}
+function renderAnomalies(d){
+  const count=d.anomalies?d.anomalies.length:0;
+  const html=anomHTML(d.anomalies);
+  $('anom-overview').innerHTML=html;$('anom-full').innerHTML=html;
+  const badge=$('anom-badge'),cb=$('anom-count-badge');
+  if(count>0){badge.style.display='';badge.textContent=count;badge.className='nav-badge '+(d.anomalies.some(a=>a.severity==='CRITICAL')?'danger':'warn');cb.style.display='';cb.textContent=count;cb.className='conf-badge '+(d.anomalies.some(a=>a.severity==='CRITICAL')?'conf-LOW':'conf-HIGH');}
+  else{badge.style.display='none';cb.style.display='none';}
+}
+function renderHealth(d){
+  const el=$('health-body');if(!el)return;
+  const col=d.db_ok?'var(--green)':'var(--red)';
+  let html=`<div style="display:flex;align-items:center;gap:8px;padding-bottom:10px;border-bottom:1px solid var(--border);margin-bottom:10px"><span style="width:8px;height:8px;border-radius:50%;background:${col};display:inline-block;box-shadow:0 0 6px ${col}"></span><span style="font-size:13px;font-weight:600">${d.status||'unknown'}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text3);margin-left:auto">${d.checked_at||''}</span></div>`;
+  if(d.stores&&d.stores.length){html+='<div style="display:flex;flex-direction:column;gap:0">';d.stores.forEach(s=>{const c=s.status==='OK'?'var(--green)':s.status==='STALE_FEED'?'var(--amber)':'var(--text3)';html+=`<div class="health-row"><span style="color:var(--text2);flex:1;font-family:'IBM Plex Mono',monospace">${s.store_id}</span><span style="color:${c}">${s.status}</span><span style="color:var(--text3);margin-left:12px">${s.lag_seconds!=null?Math.round(s.lag_seconds)+'s lag':'no data'}</span></div>`;});html+='</div>';}
+  el.innerHTML=html;
+  const ep=$('endpoint-list');
+  [['GET',`/stores/${sid()}/metrics`],['GET',`/stores/${sid()}/funnel`],['GET',`/stores/${sid()}/heatmap`],['GET',`/stores/${sid()}/anomalies`],['POST','/events/ingest'],['GET',`/cameras/${sid()}`],['GET','/health']].forEach(([m,p])=>{
+    ep.innerHTML+=(ep.innerHTML?'':``)+ `<div class="health-row"><span style="font-family:'IBM Plex Mono',monospace;font-size:9px;padding:1px 5px;border-radius:3px;background:${m==='POST'?'var(--amber-dim)':'var(--blue-dim)'};color:${m==='POST'?'var(--amber)':'var(--blue)'}">${m}</span><span style="font-family:'IBM Plex Mono',monospace;font-size:10px;color:var(--text2);flex:1;margin-left:8px">${p}</span><a href="${api()+p}" target="_blank" style="font-size:9px;color:var(--blue);text-decoration:none">open ↗</a></div>`;
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// ██████████████████  STREAM ENGINE  ███████████████████████████
+// ═══════════════════════════════════════════════════════════════
+
+// Given rtsp://host:PORT/path → derive MediaMTX browser endpoints
+// MediaMTX defaults: HLS on :8888, WebRTC on :8889
+function rtspToEndpoints(rtspUrl) {
+  try {
+    const u = new URL(rtspUrl);
+    const host = u.hostname;
+    // Path without leading slash
+    const path = u.pathname.replace(/^\/+/, '');
+    return {
+      rtsp:       rtspUrl,
+      whep:       `http://${host}:8889/${path}/whep`,
+      hls:        `http://${host}:8888/${path}/index.m3u8`,
+      hlsPage:    `http://${host}:8888/${path}/`,
+      webrtcPage: `http://${host}:8889/${path}/`,
+    };
+  } catch(e) { return null; }
+}
+
+// ── WebRTC WHEP client ────────────────────────────────────────
+async function tryWhep(whepUrl, videoEl) {
+  try {
+    if(whepPc) { whepPc.close(); whepPc = null; }
+    const pc = new RTCPeerConnection({
+      iceServers: [
+        { urls: 'stun:stun.l.google.com:19302' },
+        { urls: 'stun:stun1.l.google.com:19302' },
+      ]
+    });
+    whepPc = pc;
+
+    // Add recv-only transceivers
+    pc.addTransceiver('video', { direction: 'recvonly' });
+    pc.addTransceiver('audio', { direction: 'recvonly' });
+
+    const trackPromise = new Promise(resolve => {
+      pc.ontrack = e => {
+        if(e.track.kind === 'video') resolve(e.streams[0] || new MediaStream([e.track]));
+      };
+    });
+
+    const offer = await pc.createOffer();
+    await pc.setLocalDescription(offer);
+
+    // Wait for ICE gathering (max 3s)
+    await new Promise(resolve => {
+      if(pc.iceGatheringState === 'complete') { resolve(); return; }
+      const handler = () => { if(pc.iceGatheringState === 'complete') { pc.removeEventListener('icegatheringstatechange', handler); resolve(); } };
+      pc.addEventListener('icegatheringstatechange', handler);
+      setTimeout(resolve, 3000);
+    });
+
+    const resp = await fetch(whepUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/sdp' },
+      body: pc.localDescription.sdp,
+    });
+    if(!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+    const answerSdp = await resp.text();
+    await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp });
+
+    // Wait for video track (max 5s)
+    const stream = await Promise.race([trackPromise, new Promise((_,rej)=>setTimeout(()=>rej(new Error('track timeout')),5000))]);
+    videoEl.srcObject = stream;
+    videoEl.style.display = '';
+    await videoEl.play().catch(() => {});
+    log('✓ WebRTC (WHEP) playing', 'ok');
+    return true;
+  } catch(e) {
+    log(`WHEP: ${e.message}`, 'warn');
+    if(whepPc) { try{whepPc.close();}catch(_){} whepPc = null; }
+    return false;
+  }
+}
+
+// ── HLS via hls.js (Chrome/Firefox) or native (Safari) ───────
+function tryHls(m3u8Url, videoEl) {
+  return new Promise(resolve => {
+    if(hlsInstance) { try{hlsInstance.destroy();}catch(_){} hlsInstance = null; }
+    // Safari native HLS
+    if(!Hls.isSupported()) {
+      if(videoEl.canPlayType('application/vnd.apple.mpegurl')) {
+        videoEl.src = m3u8Url;
+        videoEl.style.display = '';
+        videoEl.play().catch(() => {});
+        log('✓ HLS (native Safari) playing', 'ok');
+        resolve(true);
+      } else {
+        log('HLS: not supported in this browser', 'warn');
+        resolve(false);
+      }
+      return;
+    }
+    const hls = new Hls({
+      liveSyncDurationCount: 2,
+      liveMaxLatencyDurationCount: 5,
+      lowLatencyMode: true,
+      xhrSetup: xhr => xhr.withCredentials = false,
+    });
+    hlsInstance = hls;
+    hls.loadSource(m3u8Url);
+    hls.attachMedia(videoEl);
+    let resolved = false;
+    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+      videoEl.style.display = '';
+      videoEl.play().catch(() => {});
+      log('✓ HLS (hls.js) playing', 'ok');
+      resolved = true;
+      resolve(true);
+    });
+    hls.on(Hls.Events.ERROR, (ev, data) => {
+      if(data.fatal && !resolved) {
+        log(`HLS error: ${data.type} / ${data.details}`, 'warn');
+        hls.destroy();
+        resolve(false);
+      }
+    });
+    setTimeout(() => { if(!resolved) { log('HLS: timeout', 'warn'); resolve(false); } }, 10000);
+  });
+}
+
+// ── Viewer status overlay ─────────────────────────────────────
+function setViewerStatus(msg, color) {
+  const el = $('viewer-status');
+  el.textContent = msg;
+  el.style.color = color === 'amber' ? 'var(--amber)' : color === 'red' ? 'var(--red)' : color === 'green' ? 'var(--green)' : 'var(--text2)';
+  el.style.display = msg ? '' : 'none';
+}
+
+// ── Show stream info box ──────────────────────────────────────
+function showStreamInfoBox(eps) {
+  const box = $('stream-info-box');
+  const rows = $('stream-info-rows');
+  rows.innerHTML = [
+    ['proto-rtsp',   'RTSP (original)',  eps.rtsp,       null,             '✗ browsers cannot play'],
+    ['proto-webrtc', 'WebRTC / WHEP',    eps.whep,       eps.whep,         '← trying first'],
+    ['proto-hls',    'HLS / m3u8',       eps.hls,        eps.hls,          '← fallback'],
+    ['proto-player', 'Player page',      eps.webrtcPage, eps.webrtcPage,   '← final fallback'],
+  ].map(([cls, label, url, actionUrl, hint]) => `
+    <div class="stream-info-row">
+      <span class="stream-proto ${cls}">${label}</span>
+      <span class="stream-url" title="${url}">${url}</span>
+      ${actionUrl ? `<button class="btn btn-xs" onclick="manualLoad('${actionUrl}')">Try</button>` : `<span style="font-size:9px;color:var(--text3)">${hint}</span>`}
+    </div>
+  `).join('');
+  box.style.display = '';
+}
+
+// ── Main stream loader — cascades through strategies ──────────
+async function loadStreamInViewer(url, camId, label, camType) {
+  activeRtspUrl = url;
+
+  // Header
+  $('active-cam-label').textContent = label || camId;
+  $('active-cam-id').textContent = camId;
+  const tb = $('active-cam-type');
+  tb.textContent = camType || '';
+  tb.className = 'cam-type-badge ct-' + (camType || 'floor');
+  $('deactivate-btn').style.display = '';
+
+  // Reset
+  _resetViewer();
+  $('viewer-live-badge').style.display = 'flex';
+  $('viewer-overlay').classList.remove('hidden');
+  updateViewerOverlay(cachedMetrics);
+
+  // Highlight thumbnail
+  document.querySelectorAll('.cam-thumb').forEach(t => t.classList.remove('active-cam'));
+  const thumb = document.getElementById('thumb-' + camId);
+  if(thumb) thumb.classList.add('active-cam');
+
+  const lower = url.toLowerCase();
+  const vid = $('viewer-video');
+
+  // ── RTSP: auto-convert via MediaMTX ──────────────────────────
+  if(lower.startsWith('rtsp://')) {
+    const eps = rtspToEndpoints(url);
+    showStreamInfoBox(eps);
+
+    // 1. Try WebRTC WHEP
+    setViewerStatus('Trying WebRTC (WHEP)…', 'amber');
+    const whepOk = await tryWhep(eps.whep, vid);
+    if(whepOk) { setViewerStatus('● WebRTC live', 'green'); return; }
+
+    // 2. Try HLS
+    setViewerStatus('WHEP failed → trying HLS…', 'amber');
+    const hlsOk = await tryHls(eps.hls, vid);
+    if(hlsOk) { setViewerStatus('● HLS live', 'green'); return; }
+
+    // 3. Try MediaMTX player page in iframe
+    setViewerStatus('HLS failed → loading player page…', 'amber');
+    const iframe = $('viewer-iframe');
+    iframe.src = eps.webrtcPage;
+    iframe.style.display = '';
+    iframe.onload = () => setViewerStatus('● Player loaded', 'green');
+    iframe.onerror = () => setViewerStatus('✗ All strategies failed — is MediaMTX running?', 'red');
+    log('Loaded MediaMTX player page as fallback', 'warn');
+    return;
+  }
+
+  // ── HLS .m3u8 direct ─────────────────────────────────────────
+  if(lower.endsWith('.m3u8') || lower.includes('.m3u8?') || lower.includes('/index.m3u8')) {
+    setViewerStatus('Loading HLS…', 'amber');
+    const ok = await tryHls(url, vid);
+    if(ok) { setViewerStatus('● HLS live', 'green'); }
+    else {
+      // iframe fallback
+      const iframe = $('viewer-iframe');
+      iframe.src = url.replace('index.m3u8','');
+      iframe.style.display = '';
+      setViewerStatus('● iframe fallback', 'green');
+    }
+    return;
+  }
+
+  // ── MJPEG ─────────────────────────────────────────────────────
+  if(lower.includes('/mjpg') || lower.includes('/videostream') || lower.includes('/mjpeg') || (lower.endsWith('.jpg') && lower.includes('stream'))) {
+    const img = $('viewer-mjpeg');
+    img.src = url + (url.includes('?') ? '&' : '?') + 't=' + Date.now();
+    img.style.display = 'block';
+    img.onerror = () => setViewerStatus('✗ MJPEG unreachable', 'red');
+    img.onload = () => setViewerStatus('● MJPEG live', 'green');
+    log(`MJPEG: ${camId}`, 'ok');
+    return;
+  }
+
+  // ── HTTP/HTTPS iframe ─────────────────────────────────────────
+  const iframe = $('viewer-iframe');
+  iframe.src = url;
+  iframe.style.display = '';
+  setViewerStatus('● iframe loaded', 'green');
+  log(`iframe: ${camId}`, 'ok');
+}
+
+function _resetViewer() {
+  $('viewer-idle').style.display = 'none';
+  const vid = $('viewer-video');
+  vid.style.display = 'none';
+  vid.src = '';
+  if(vid.srcObject) { try{vid.srcObject.getTracks().forEach(t=>t.stop());}catch(_){} vid.srcObject = null; }
+  const ifrm = $('viewer-iframe');
+  ifrm.style.display = 'none'; ifrm.src = '';
+  const mjpg = $('viewer-mjpeg');
+  mjpg.style.display = 'none'; mjpg.src = '';
+  if(hlsInstance) { try{hlsInstance.destroy();}catch(_){} hlsInstance = null; }
+  if(whepPc) { try{whepPc.close();}catch(_){} whepPc = null; }
+  $('stream-info-box').style.display = 'none';
+  setViewerStatus('', '');
+}
+
+// Manual try from info box
+async function manualLoad(url) {
+  setViewerStatus('Trying…', 'amber');
+  const vid = $('viewer-video');
+  const lower = url.toLowerCase();
+  if(lower.includes('/whep')) {
+    const ok = await tryWhep(url, vid);
+    setViewerStatus(ok ? '● WebRTC live' : '✗ WHEP failed', ok ? 'green' : 'red');
+  } else if(lower.includes('.m3u8')) {
+    _resetViewer();
+    $('viewer-live-badge').style.display = 'flex';
+    $('viewer-overlay').classList.remove('hidden');
+    const ok = await tryHls(url, vid);
+    setViewerStatus(ok ? '● HLS live' : '✗ HLS failed', ok ? 'green' : 'red');
+  } else {
+    const iframe = $('viewer-iframe');
+    _resetViewer();
+    $('viewer-live-badge').style.display = 'flex';
+    $('viewer-overlay').classList.remove('hidden');
+    iframe.src = url; iframe.style.display = '';
+    setViewerStatus('● iframe loaded', 'green');
+  }
+}
+
+// Quick preview without registering
+function quickPreview() {
+  const url = $('reg-url').value.trim();
+  if(!url) { $('reg-result').textContent = 'Enter a URL first'; $('reg-result').style.color='var(--red)'; return; }
+  const camId = $('reg-cam-id').value.trim() || 'PREVIEW';
+  const label = $('reg-label').value.trim() || 'Preview';
+  const type = $('reg-type').value;
+  loadStreamInViewer(url, camId, label, type);
+  // Switch to camera tab
+  document.querySelectorAll('.content-section').forEach(s=>s.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(i=>i.classList.remove('active'));
+  $('s-cameras').classList.add('active');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CAMERA MANAGER
+// ═══════════════════════════════════════════════════════════════
+async function fetchCameras() {
+  $('cam-store-label').textContent = sid();
+  const data = await apiFetch(`/cameras/${sid()}`);
+  if(!data) { $('cam-grid').innerHTML = '<div class="empty" style="grid-column:1/-1">Cannot reach /cameras API</div>'; return; }
+  registeredCameras = data.cameras || [];
+  renderCamGrid(registeredCameras, data.active_camera_id);
+  const badge = $('cam-count-badge');
+  badge.style.display = registeredCameras.length ? '' : 'none';
+  badge.textContent = registeredCameras.length;
+}
+
+function renderCamGrid(cameras, activeCamId) {
+  const grid = $('cam-grid');
+  if(!cameras.length) { grid.innerHTML = '<div class="empty" style="grid-column:1/-1;padding:16px">No cameras — register one below</div>'; return; }
+  grid.innerHTML = cameras.map(c => {
+    const isActive = c.camera_id === activeCamId;
+    const tc = 'ct-' + (c.camera_type || 'floor');
+    const hc = 'ch-' + (c.stream_health || 'unknown').toLowerCase();
+    return `<div class="cam-thumb ${isActive ? 'active-cam' : ''}" id="thumb-${c.camera_id}" onclick="selectCamera('${c.camera_id}','${encodeURIComponent(c.rtsp_url||'')}','${encodeURIComponent(c.label||c.camera_id)}','${c.camera_type||'floor'}')">
+      <div class="cam-thumb-preview">
+        <div class="active-indicator"><span class="blink"></span>ACTIVE</div>
+        <div class="cam-thumb-idle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg><span>${c.rtsp_url ? 'Click to load' : 'No URL'}</span></div>
+      </div>
+      <div class="cam-thumb-info">
+        <div class="cam-thumb-id">${c.camera_id}</div>
+        <div class="cam-thumb-label">${c.label || c.camera_id}</div>
+        <div class="cam-thumb-url">${c.rtsp_url || '—'}</div>
+        <div class="cam-thumb-meta"><span class="cam-type-badge ${tc}">${c.camera_type || '?'}</span><span style="font-size:8px;font-family:'IBM Plex Mono',monospace;color:${c.stream_health==='ok'?'var(--green)':'var(--text3)'}">${c.stream_health || '?'}</span></div>
+      </div>
+      <div class="cam-thumb-actions">
+        <button class="btn btn-xs btn-primary" onclick="event.stopPropagation();activateCam('${c.camera_id}')" ${isActive ? 'disabled style="opacity:.4"' : ''}>Activate</button>
+        <button class="btn btn-xs btn-danger" onclick="event.stopPropagation();deleteCamera('${c.camera_id}')">Delete</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function selectCamera(camId, encodedUrl, encodedLabel, camType) {
+  const url = decodeURIComponent(encodedUrl);
+  if(!url) { log(`Camera ${camId} has no URL`, 'warn'); return; }
+  loadStreamInViewer(url, camId, decodeURIComponent(encodedLabel), camType);
+}
+
+async function pollActiveCamera(force=false) {
+  const data = await apiFetch(`/cameras/${sid()}/active`);
+  if(!data || !data.is_active) return;
+  if(force || data.rtsp_url !== activeRtspUrl) {
+    loadStreamInViewer(data.rtsp_url, data.camera_id, data.label || data.camera_id, data.camera_type);
+  }
+}
+
+function applyPollInterval() {
+  const ms = parseInt($('poll-interval').value);
+  if(pollTimer) { clearInterval(pollTimer); pollTimer = null; }
+  if(ms > 0) {
+    pollTimer = setInterval(() => pollActiveCamera(), ms);
+    $('poll-status').textContent = `every ${ms/1000}s`;
+    $('poll-status').style.color = 'var(--green)';
+  } else {
+    $('poll-status').textContent = 'off';
+    $('poll-status').style.color = 'var(--text3)';
+  }
+}
+
+async function activateCam(camId) {
+  const res = await apiFetch(`/cameras/${sid()}/${camId}/activate`, { method: 'POST' });
+  if(res) { log(`Activated ${camId}`, 'ok'); fetchCameras(); pollActiveCamera(true); }
+}
+
+async function deactivateCam() {
+  const camId = $('active-cam-id').textContent;
+  if(camId) await apiFetch(`/cameras/${sid()}/${camId}/deactivate`, { method: 'POST' });
+  _resetViewer();
+  $('viewer-idle').style.display = 'flex';
+  $('viewer-live-badge').style.display = 'none';
+  $('viewer-overlay').classList.add('hidden');
+  $('active-cam-label').textContent = 'No Camera Selected';
+  $('active-cam-id').textContent = '';
+  $('active-cam-type').textContent = '';
+  $('deactivate-btn').style.display = 'none';
+  activeRtspUrl = null;
+  document.querySelectorAll('.cam-thumb').forEach(t => t.classList.remove('active-cam'));
+  fetchCameras();
+}
+
+async function deleteCamera(camId) {
+  if(!confirm(`Delete ${camId}?`)) return;
+  const res = await apiFetch(`/cameras/${sid()}/${camId}`, { method: 'DELETE' });
+  if(res) { log(`Deleted ${camId}`, 'ok'); fetchCameras(); }
+}
+
+async function registerCamera() {
+  const camId = $('reg-cam-id').value.trim();
+  const storeId = $('reg-store-id').value.trim() || sid();
+  const url = $('reg-url').value.trim();
+  if(!camId || !url) { $('reg-result').textContent = 'Camera ID and URL required'; $('reg-result').style.color = 'var(--red)'; return; }
+  const res = await apiFetch('/cameras/register', {
+    method: 'POST',
+    body: JSON.stringify({ store_id: storeId, camera_id: camId, rtsp_url: url, label: $('reg-label').value.trim() || camId, camera_type: $('reg-type').value, zone_ids: $('reg-zones').value.split(',').map(z => z.trim()).filter(Boolean), auto_activate: $('reg-auto-activate').checked })
+  });
+  if(res) {
+    $('reg-result').textContent = `✓ ${res.action || 'registered'}: ${camId}`;
+    $('reg-result').style.color = 'var(--green)';
+    fetchCameras();
+    if($('reg-auto-activate').checked) setTimeout(() => pollActiveCamera(true), 400);
+  } else { $('reg-result').textContent = 'Failed'; $('reg-result').style.color = 'var(--red)'; }
+}
+
+async function batchRegister() {
+  const lines = $('batch-input').value.trim().split('\n').filter(Boolean);
+  let ok = 0, fail = 0;
+  for(const line of lines) {
+    const [storeId, camId, type, url, ...rest] = line.split(',');
+    if(!camId || !url) { fail++; continue; }
+    const res = await apiFetch('/cameras/register', { method: 'POST', body: JSON.stringify({ store_id: storeId.trim(), camera_id: camId.trim(), rtsp_url: url.trim(), label: rest.join(',').trim() || camId.trim(), camera_type: type.trim(), zone_ids: [], auto_activate: false }) });
+    if(res) ok++; else fail++;
+  }
+  $('batch-result').textContent = `✓ ${ok} done${fail ? `, ${fail} failed` : ''}`;
+  $('batch-result').style.color = fail ? 'var(--amber)' : 'var(--green)';
+  fetchCameras();
+}
+
+function prefillBatch() {
+  $('batch-input').value = `STORE_BLR_002,CAM_ENTRY_01,entry,rtsp://localhost:8554/testcam,Entry Door
+STORE_BLR_002,CAM_FLOOR_01,floor,rtsp://localhost:8554/floor,Main Floor
+STORE_BLR_002,CAM_BILLING_01,billing,http://localhost:8888/billing/index.m3u8,Billing`;
+}
+
+$('store-id').addEventListener('change', () => { $('reg-store-id').value = $('store-id').value.trim(); });
+
+// ═══════════════════════════════════════════════════════════════
+// EVENT STREAM + WS + SIMULATION
+// ═══════════════════════════════════════════════════════════════
+function appendEvent(ev) {
+  const stream = $('event-stream');
+  if(stream.querySelector('.empty')) stream.innerHTML = '';
+  const row = document.createElement('div'); row.className = 'event-row';
+  const ts = (ev.timestamp || '').slice(11, 19) || nowts();
+  const et = ev.event_type || '?';
+  row.innerHTML = `<span class="event-ts">${ts}</span><span class="event-type et-${et}">${et}</span><span class="event-visitor">${ev.visitor_id || '?'}</span><span class="event-zone">${ev.zone_id ? ' → ' + ev.zone_id : ''}</span>`;
+  stream.insertBefore(row, stream.firstChild);
+  while(stream.children.length > 80) stream.removeChild(stream.lastChild);
+}
+function clearStream() { $('event-stream').innerHTML = '<div class="empty" style="padding:12px">Cleared</div>'; }
+
+function toggleSimulation() {
+  const btn = $('sim-btn');
+  if(simActive) { clearInterval(simTimer); simActive = false; btn.textContent = 'Simulate'; btn.classList.remove('btn-primary'); }
+  else {
+    simActive = true; btn.textContent = '⏹ Stop'; btn.classList.add('btn-primary');
+    log('Simulation started', 'ok');
+    simTimer = setInterval(() => {
+      const types = ['ENTRY', 'ZONE_ENTER', 'ZONE_DWELL', 'BILLING_QUEUE_JOIN', 'EXIT'];
+      const et = types[Math.floor(Math.random() * types.length)];
+      appendEvent({ store_id: sid(), camera_id: 'CAM_SIM', visitor_id: VISITORS[Math.floor(Math.random() * VISITORS.length)], event_type: et, timestamp: new Date().toISOString(), zone_id: ET_ZONES.includes(et) ? ZONES[Math.floor(Math.random() * ZONES.length)] : null });
+    }, 800);
+  }
+}
+
+function connectWS() {
+  const url = ($('ws-url').value || 'ws://localhost:8000/ws/events').trim();
+  try {
+    ws = new WebSocket(url);
+    $('ws-dot').className = 'ws-dot connecting'; $('ws-status').textContent = 'Connecting…';
+    ws.onopen = () => { $('ws-dot').className = 'ws-dot connected'; $('ws-status').textContent = 'Connected'; $('ws-status').style.color = 'var(--green)'; $('ws-connect-btn').style.display = 'none'; $('ws-disconnect-btn').style.display = ''; log(`WS: ${url}`, 'ok'); };
+    ws.onmessage = e => { try { appendEvent(JSON.parse(e.data)); } catch(_) {} };
+    ws.onclose = () => { $('ws-dot').className = 'ws-dot'; $('ws-status').textContent = 'Disconnected'; $('ws-status').style.color = 'var(--text3)'; $('ws-connect-btn').style.display = ''; $('ws-disconnect-btn').style.display = 'none'; log('WS closed', 'warn'); };
+    ws.onerror = () => log('WS error', 'err');
+  } catch(e) { log(`WS failed: ${e.message}`, 'err'); }
+}
+function disconnectWS() { if(ws) ws.close(); }
+
+// ═══════════════════════════════════════════════════════════════
+// INGEST
+// ═══════════════════════════════════════════════════════════════
+function buildPayload() {
+  const type = $('ing-type').value, zoneId = $('ing-zone').value.trim() || null;
+  return { event_id: crypto.randomUUID ? crypto.randomUUID() : 'eid-' + Date.now(), store_id: sid(), camera_id: $('ing-cam').value.trim(), visitor_id: $('ing-visitor').value.trim(), event_type: type, timestamp: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'), zone_id: ET_ZONES.includes(type) ? zoneId : null, dwell_ms: parseInt($('ing-dwell').value) || 0, is_staff: $('ing-staff').checked, confidence: parseFloat($('ing-conf').value) || 0.92, metadata: { queue_depth: parseInt($('ing-queue').value) || null, sku_zone: zoneId, session_seq: 0 } };
+}
+function updateIngPreview() { try { $('ing-preview').textContent = JSON.stringify({ events: [buildPayload()] }, null, 2); } catch(e) {} }
+function randomiseForm() { $('ing-type').value = EVENT_TYPES[Math.floor(Math.random() * EVENT_TYPES.length)]; $('ing-visitor').value = 'VIS_' + randHex(6); $('ing-conf').value = (Math.round((0.7 + Math.random() * 0.28) * 100) / 100).toFixed(2); if($('ing-type').value.includes('ZONE')) $('ing-zone').value = ZONES[Math.floor(Math.random() * 4)]; updateIngPreview(); }
+async function sendEvent() {
+  const payload = { events: [buildPayload()] };
+  const result = $('ing-result'); result.style.display = ''; result.textContent = 'Sending…'; result.style.color = 'var(--text3)';
+  try {
+    const r = await fetch(api() + '/events/ingest', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+    const data = await r.json();
+    result.textContent = JSON.stringify(data, null, 2); result.style.color = r.ok ? 'var(--green)' : 'var(--red)';
+    log(`Ingest ${r.status}: acc=${data.accepted} rej=${data.rejected}`, r.ok ? 'ok' : 'err');
+    if(r.ok) setTimeout(fetchAll, 500);
+  } catch(e) { result.textContent = 'Error: ' + e.message; result.style.color = 'var(--red)'; }
+}
+function copyPayload() { navigator.clipboard.writeText($('ing-preview').textContent).then(() => log('Payload copied', 'ok')); }
+
+// ═══════════════════════════════════════════════════════════════
+// INIT
+// ═══════════════════════════════════════════════════════════════
+updateIngPreview();
+applyPollInterval();
+log('Dashboard ready — enter API URL and click Fetch', 'info');
+</script>a
+</body>
+</html>

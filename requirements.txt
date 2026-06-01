@@ -1,0 +1,20 @@
+# API server
+fastapi>=0.109.0
+uvicorn[standard]>=0.27.0
+pydantic>=2.5.0
+sqlalchemy>=2.0.0
+
+# Testing
+httpx>=0.26.0       # FastAPI TestClient dependency
+pytest>=8.0.0
+pytest-cov>=5.0.0
+
+# Pipeline (also needed for pos_correlate.py which runs on host, not in Docker)
+numpy>=1.24.0
+#scheduler
+requests==2.32.3
+#pipline
+# Detection pipeline — install on the host machine (not in Docker)
+numpy>=1.24.0
+opencv-python-headless>=4.8.0
+ultralytics>=8.2.0    # YOLOv8 — downloads yolov8n.pt on first run

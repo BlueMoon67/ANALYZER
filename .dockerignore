@@ -1,0 +1,39 @@
+# Model weights — 6.3MB, never needed in cloud image
+pipeline/yolov8n.pt
+
+# Local DB files
+*.db
+*.db-shm
+*.db-wal
+
+# Local event output files
+events/
+pipeline/events/
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.egg-info/
+
+# Dev tooling
+.env
+venv/
+.venv/
+tests/
+
+# Pipeline modules NOT needed in cloud image
+# (emit.py and __init__.py are explicitly copied in Dockerfile)
+pipeline/tracker.py
+pipeline/staff_classifier.py
+pipeline/zone_classifier.py
+pipeline/zone_classifier.py
+pipeline/feed.py
+pipeline/pos_correlate.py
+pipeline/run.sh
+pipeline/store_layout.json
+
+# Docs / misc
+docs/
+*.md

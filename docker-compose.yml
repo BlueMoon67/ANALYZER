@@ -1,0 +1,34 @@
+version: "3.9"
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    ports:
+      - "8000:8000"
+
+    environment:
+      - DATABASE_URL=sqlite:////data/store_intelligence.db
+      - LOG_LEVEL=INFO
+
+    volumes:
+      - db_data:/data
+      - ./events:/app/events
+      - ./pipeline:/app/pipeline
+      - ./app:/app/app
+
+    working_dir: /app
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+    restart: unless-stopped
+
+volumes:
+  db_data:
